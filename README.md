@@ -7,13 +7,13 @@
 
 # File Descriptions:
  
-## "balancing_k.py"
+## "vector_sequence_GUI.py"
  
-> GUI that takes input k, starting x_0, ending x_0, how many v_n to check, and how many v_n to print, and calculates the associated vector sequences outlined in the LaTeX document. It gives information for individual vector sequences including long-term behavior (zeroed, grown, cycling), which cycle it is in, and more.
+> GUI that takes input k, sequence type, starting x_0, ending x_0, how many v_n to check, and how many v_n to print, and calculates the associated vector sequences outlined in the LaTeX document. It gives information for individual vector sequences including long-term behavior (zeroed, grown, cycling), which cycle it is in, and more.
 
-## "collatz_vector_multigraph_simulator_fixed.py"
+## "sequence_simulator.py"
   
-> GUI that allows you to visualize any given vector sequence evolve overtime. Given x_0 it plays an animation of what the sequence looks like with a faded history feature to keep the full picture.
+> GUI that allows you to visualize 1-4 vector sequence(s) evolve overtime. Given x_0 and sequence type it plays an animation of what the sequence looks like with faded data points representing the history of the vector sequence
 
 ## "ZGC_grapher.c" and "ZGC_grapher.py"
   
