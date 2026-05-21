@@ -3,6 +3,8 @@
 - This repository contains vibe-coded Python and C files as tools to explore the mathematical object defined in the LaTeX doc
 - Claude Code, Grok, and some ChatGPT Plus were used to generate most code
 
+
+
 # File Descriptions:
  
 ## "balancing_k.py"
