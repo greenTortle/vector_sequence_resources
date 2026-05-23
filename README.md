@@ -2,6 +2,7 @@
 
 - This repository contains vibe-coded Python and C files as tools to explore the mathematical object defined in the PDF
 - Claude Code, Grok, and some ChatGPT Plus were used to generate most code
+- The .ZIP cache file holds saved CSV files with data for $q=(1,2500)$ for 
 
 
 
