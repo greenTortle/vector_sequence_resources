@@ -28,4 +28,4 @@
 
 ## "ZGC_cache.zip"
 
-> This ZIP cache file holds saved CSV files with data for $q_{start}=1$ and $q_{end}=2500$ for $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and max $v_n=1000$ for ease of reproducing the MP4 animation included. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and internal Python file comments.
+> This ZIP cache file holds saved CSV files with data for $q_{start}=1$ and $q_{end}=2500$ for $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and max $v_n=1000$ for ease of reproducing 'animation.mp4'. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and internal Python file comments.
