@@ -14,7 +14,7 @@
 
 ## "sequence_simulator.py"
   
-> GUI that allows you to visualize 1-4 vector sequence(s) evolve overtime. Given x_0 and sequence type it plays an animation of what the sequence looks like with faded data points representing the history of the vector sequence
+> GUI that allows you to visualize 1-4 vector sequence(s) evolve overtime. Given x_0 and sequence type it plays an animation of what the sequence looks like with faded data points representing the history of the vector sequence. For the general Hailstone function a $q$ must be specified
 
 ## "ZGC_grapher.c" and "ZGC_grapher.py"
   
