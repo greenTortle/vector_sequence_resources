@@ -1,5 +1,5 @@
 /* 
- * k vs Z/G/C Scanner — pure C, single-file, no dependencies
+ * k vs Z/G/C Scanner — pure C, single-file, OpenMP parallelised
  * =============================================================
  *
  * Scans k-values for the vector recurrence:
@@ -13,16 +13,33 @@
  * G (grown)  : neither zeroed nor cycled within check_n steps
  * C (cycled) : the same nonzero tail appears again
  *
- * Build (Mac / Linux):
- * gcc -O3 -march=native -o k_zgc_scanner k_zgc_scanner.c -lm
+ * Build (Mac / Linux)  — parallel (recommended):
+ * gcc -O3 -march=native -fopenmp -o k_zgc_scanner k_zgc_scanner.c -lm
+ *
+ * Build without OpenMP (single-threaded fallback):
+ * gcc -O3 -march=native -o ZGC_grapher ZGC_grapher.c -lm
  *
  * Build (Windows, MinGW / MSYS2):
- * gcc -O3 -o ZGC_grapher.exe ZGC_grapher.c -lm
+ * gcc -O3 -fopenmp -o ZGC_grapher.exe ZGC_grapher.c -lm
+ *
+ * Control thread count (default = all cores):
+ * $env:OMP_NUM_THREADS=4
  *
  * RUN:
  * ./ZGC_grapher 2.0 2.5 500 2 100 200 H
- * (start end npts x0s x0e chkn rule) → (H, A, T, S) 
- * NOTE: For ~ 1<k<2.5 the decay rate is slow so the program slows WAY down
+ * (start end npts x0s x0e chkn rule [coeff])
+ * rule: H [coeff], A, T, S
+ *   H [coeff] = generalized hailstone: odd→coeff*x+1, even→x/2
+ *               coeff defaults to 3 (classic Collatz) if omitted
+ *   A = aliquot, T = Euler totient, S = sum of divisors
+ *
+ * Examples:
+ *   ./ZGC_grapher 2.0 2.5 500 2 100 200 H        (classic 3x+1)
+ *   ./ZGC_grapher 2.0 2.5 500 2 100 200 H 5      (5x+1 hailstone)
+ *   ./ZGC_grapher 0.5 2.0 500 2 100 200 H 3      (k < 1 allowed)
+ *
+ * NOTE: For k <= 1 the sequence values can grow, so runs may be slow.
+ *       For k ~ 1..2.5 the decay rate is slow so the program slows WAY down.
  *
  * Output:
  * Prints a progress bar + summary table to stdout and writes
@@ -39,6 +56,9 @@
 #include <inttypes.h>
 #include <time.h>
 #include <math.h>
+#ifdef _OPENMP
+#  include <omp.h>
+#endif
 
 /* ============================================================
  * Configuration / defaults
@@ -51,6 +71,7 @@
 #define DEFAULT_START_X0 2
 #define DEFAULT_END_X0 100
 #define DEFAULT_CHECK_N 200
+#define DEFAULT_HAILSTONE_COEFF 3LL
 
 #define OUTPUT_CSV "k_zgc_results.csv"
 
@@ -58,7 +79,7 @@
 #define MAX_TAIL 2048
 
 /* Cache for expensive S() functions */
-#define S_CACHE_SIZE 16384
+#define S_CACHE_SIZE 4194304
 
 /* ============================================================
  * Cycle detection
@@ -106,6 +127,9 @@ typedef enum {
     RULE_TOTIENT,
     RULE_SIGMA
 } SequenceRule;
+
+/* Hailstone coefficient (generalized: odd -> coeff*x + 1, even -> x/2) */
+static int64_t g_hailstone_coeff = DEFAULT_HAILSTONE_COEFF;
 
 static const char *rule_display_name(SequenceRule rule) {
     switch (rule) {
@@ -179,8 +203,13 @@ static int64_t totient_S(int64_t m) {
     return result;
 }
 
+/* Generalized hailstone: odd -> coeff*x + 1, even -> x/2
+ * Uses the global g_hailstone_coeff. */
 static int64_t hailstone_S(int64_t m) {
-    return (m & 1) ? sat_from_i128((__int128)m * 3 + 1) : (m >> 1);
+    if (m & 1)
+        return sat_from_i128((__int128)g_hailstone_coeff * m + 1);
+    else
+        return m >> 1;
 }
 
 static int64_t sigma_cache[S_CACHE_SIZE];
@@ -215,7 +244,7 @@ static int64_t cached_totient(int64_t m) {
 static int64_t apply_sequence_rule(int64_t m, SequenceRule rule) {
     switch (rule) {
         case RULE_HAILSTONE: return hailstone_S(m);
-        case RULE_ALIQUOT:   return aliquot_S(cached_sigma(m));
+        case RULE_ALIQUOT:   return aliquot_S(m);
         case RULE_TOTIENT:   return cached_totient(m);
         case RULE_SIGMA:     return cached_sigma(m);
         default:             return hailstone_S(m);
@@ -223,7 +252,7 @@ static int64_t apply_sequence_rule(int64_t m, SequenceRule rule) {
 }
 
 /* ============================================================
- * Core classification (unchanged)
+ * Core classification
  * ============================================================ */
 static int classify_sequence(int64_t k_num, int64_t k_den,
                              int64_t x0, int check_n,
@@ -242,6 +271,8 @@ static int classify_sequence(int64_t k_num, int64_t k_den,
         int next_len = 0;
 
         for (int i = 0; i < tail_len; i++) {
+            /* floor(x / k) = floor(x * k_den / k_num)
+             * Works for any positive rational k, including k < 1 and k = 1. */
             int64_t y = (tail[i] * k_den) / k_num;
             h += y;
             if (y || nz) {
@@ -270,7 +301,7 @@ static int classify_sequence(int64_t k_num, int64_t k_den,
 }
 
 /* ============================================================
- * Rational arithmetic (unchanged)
+ * Rational arithmetic
  * ============================================================ */
 static int64_t gcd64(int64_t a, int64_t b) {
     if (a < 0) a = -a;
@@ -370,8 +401,25 @@ int main(int argc, char **argv) {
     if (argc >= 7) check_n = atoi(argv[6]);
     if (argc >= 8) rule = parse_rule(argv[7]);
 
-    if ((double)start_k.num / start_k.den <= 1.0 || (double)end_k.num / end_k.den <= 1.0) {
-        fprintf(stderr, "Error: k must be > 1.\n"); return 1;
+    /* Optional hailstone coefficient: argv[8], only meaningful for H rule */
+    if (argc >= 9) {
+        if (rule == RULE_HAILSTONE) {
+            int64_t c = atoll(argv[8]);
+            if (c < 1) {
+                fprintf(stderr, "Error: hailstone coefficient must be >= 1.\n");
+                return 1;
+            }
+            g_hailstone_coeff = c;
+        } else {
+            fprintf(stderr, "Warning: coefficient argument ignored for non-hailstone rule.\n");
+        }
+    }
+
+    /* Validate k: must be positive (k > 0, not necessarily > 1) */
+    double sk = (double)start_k.num / start_k.den;
+    double ek = (double)end_k.num / end_k.den;
+    if (sk <= 0.0 || ek <= 0.0) {
+        fprintf(stderr, "Error: k must be > 0.\n"); return 1;
     }
     if (num_points <= 0 || check_n <= 0 || end_x0 < start_x0) {
         fprintf(stderr, "Error: invalid parameters.\n"); return 1;
@@ -379,13 +427,21 @@ int main(int argc, char **argv) {
 
     int64_t x0_count = end_x0 - start_x0 + 1;
 
+    /* Build display string for the rule, including coeff for hailstone */
+    char rule_str[64];
+    if (rule == RULE_HAILSTONE)
+        snprintf(rule_str, sizeof(rule_str), "Hailstone (%" PRId64 "x+1)",
+                 g_hailstone_coeff);
+    else
+        snprintf(rule_str, sizeof(rule_str), "%s", rule_display_name(rule));
+
     printf("\n k vs Z/G/C Scanner\n");
     printf(" ==================\n");
-    printf(" k range : %.10g .. %.10g\n", (double)start_k.num/start_k.den, (double)end_k.num/end_k.den);
+    printf(" k range  : %.10g .. %.10g\n", sk, ek);
     printf(" k points : %d\n", num_points);
     printf(" x0 range : %" PRId64 " .. %" PRId64 " (%" PRId64 " values)\n", start_x0, end_x0, x0_count);
-    printf(" check_n : %d\n", check_n);
-    printf(" S rule : %s\n", rule_display_name(rule));
+    printf(" check_n  : %d\n", check_n);
+    printf(" S rule   : %s\n", rule_str);
     printf(" Est. ops : %.2fM\n", (double)num_points * x0_count * check_n / 1e6);
     printf(" Output CSV : %s\n\n", OUTPUT_CSV);
 
@@ -409,24 +465,57 @@ int main(int argc, char **argv) {
     int *g_arr = (int *)calloc((size_t)num_points, sizeof(int));
     int *c_arr = (int *)calloc((size_t)num_points, sizeof(int));
 
-    /* Working buffers */
-    int64_t *tail = (int64_t *)malloc((size_t)MAX_TAIL * sizeof(int64_t));
-    int64_t *next_tail = (int64_t *)malloc((size_t)MAX_TAIL * sizeof(int64_t));
-    SeenSet *seen = (SeenSet *)malloc(sizeof(SeenSet));
-
-    if (!z_arr || !g_arr || !c_arr || !k_arr || !k_str || !k_fracs ||
-        !tail || !next_tail || !seen) {
+    if (!z_arr || !g_arr || !c_arr || !k_arr || !k_str || !k_fracs) {
         fprintf(stderr, "Memory allocation failed.\n"); return 1;
+    }
+
+    /* Per-thread working buffers — each thread needs its own tail/next_tail/seen
+     * so they never alias.  Allocate nthreads sets up front. */
+#ifdef _OPENMP
+    int nthreads = omp_get_max_threads();
+#else
+    int nthreads = 1;
+#endif
+    int64_t **tails      = (int64_t **)malloc((size_t)nthreads * sizeof(int64_t *));
+    int64_t **next_tails = (int64_t **)malloc((size_t)nthreads * sizeof(int64_t *));
+    SeenSet **seens      = (SeenSet **)malloc((size_t)nthreads * sizeof(SeenSet *));
+    if (!tails || !next_tails || !seens) {
+        fprintf(stderr, "Memory allocation failed.\n"); return 1;
+    }
+    for (int t = 0; t < nthreads; t++) {
+        tails[t]      = (int64_t *)malloc((size_t)MAX_TAIL * sizeof(int64_t));
+        next_tails[t] = (int64_t *)malloc((size_t)MAX_TAIL * sizeof(int64_t));
+        seens[t]      = (SeenSet *)malloc(sizeof(SeenSet));
+        if (!tails[t] || !next_tails[t] || !seens[t]) {
+            fprintf(stderr, "Memory allocation failed.\n"); return 1;
+        }
     }
 
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC, &t0);
 
+#ifdef _OPENMP
+    printf(" Threads     : %d\n", nthreads);
+#endif
     printf(" Starting calculations...\n");
     print_progress(0, num_points, 0.0);
 
+    /* Shared progress counter (updated atomically via critical section) */
+    int done = 0;
+
+#pragma omp parallel for schedule(dynamic, 1) default(none) \
+    shared(k_fracs, z_arr, g_arr, c_arr, tails, next_tails, seens, \
+           num_points, start_x0, end_x0, check_n, rule, t0, done)
     for (int ki = 0; ki < num_points; ki++) {
+#ifdef _OPENMP
+        int tid = omp_get_thread_num();
+#else
+        int tid = 0;
+#endif
         Frac k = k_fracs[ki];
+        int64_t *tail      = tails[tid];
+        int64_t *next_tail = next_tails[tid];
+        SeenSet *seen      = seens[tid];
 
         int zeroed = 0, grown = 0, cycled = 0;
 
@@ -442,23 +531,29 @@ int main(int argc, char **argv) {
         g_arr[ki] = grown;
         c_arr[ki] = cycled;
 
-        clock_gettime(CLOCK_MONOTONIC, &t1);
-        double el = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) * 1e-9;
-        print_progress(ki + 1, num_points, el);
+        /* Progress bar: only update from one thread at a time */
+#pragma omp critical
+        {
+            done++;
+            struct timespec tnow;
+            clock_gettime(CLOCK_MONOTONIC, &tnow);
+            double el = (tnow.tv_sec - t0.tv_sec) + (tnow.tv_nsec - t0.tv_nsec) * 1e-9;
+            print_progress(done, num_points, el);
+        }
     }
 
-    printf("\n\n Done in %.3f seconds.\n\n", 
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    printf("\n\n Done in %.3f seconds.\n\n",
            (double)(t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) * 1e-9);
 
     /* === Write CSV with metadata === */
     FILE *f = fopen(OUTPUT_CSV, "w");
     if (f) {
-        fprintf(f, "# Rule: %s\n", rule_display_name(rule));
-        fprintf(f, "# k range: %.10g .. %.10g  (%d points)\n", 
-                (double)start_k.num/start_k.den, (double)end_k.num/end_k.den, num_points);
+        fprintf(f, "# Rule: %s\n", rule_str);
+        fprintf(f, "# k range: %.10g .. %.10g  (%d points)\n", sk, ek, num_points);
         fprintf(f, "# x0 range: %" PRId64 " .. %" PRId64 "\n", start_x0, end_x0);
         fprintf(f, "# check_n (max v_n): %d\n", check_n);
-        fprintf(f, "# Generated on: %s", ctime((time_t*)&t1.tv_sec));  /* approximate */
+        fprintf(f, "# Generated on: %s", ctime((time_t*)&t1.tv_sec));
         fprintf(f, "k_decimal,zeroed,grown,cycled\n");
 
         for (int ki = 0; ki < num_points; ki++)
@@ -469,7 +564,10 @@ int main(int argc, char **argv) {
     }
 
     /* Cleanup */
-    free(seen); free(tail); free(next_tail);
+    for (int t = 0; t < nthreads; t++) {
+        free(tails[t]); free(next_tails[t]); free(seens[t]);
+    }
+    free(tails); free(next_tails); free(seens);
     free(z_arr); free(g_arr); free(c_arr);
     free(k_arr); free(k_fracs);
     for (int ki = 0; ki < num_points; ki++) free(k_str[ki]);
