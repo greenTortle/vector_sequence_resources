@@ -26,6 +26,6 @@
   
 > Python file that runs in the terminal to create an animation for multiple $q$ values for when $S$ is the general Hailstone function. Required parameters for the animation include $q_{start}$, $q_{end}$, $k_{start}$, $k_{end}$, $x_{start}$, $x_{end}$, and max $v_n$. Optional parameters include a $q$-step value, time per $q$ frame in the video, selection between GIF or MP4 output, number of workers computing the data, DPI, number of colors, video width, and video height. 
 
-## "ZGC_cache.zip"
+## "ZGC_cache.7z"
 
-> This ZIP cache file holds saved CSV files with data for $q_{start}=1$ and $q_{end}=2500$ for $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and max $v_n=1000$ for ease of reproducing 'animation.mp4'. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and its internal Python file comments.
+> This compressed 7-Zip cache file holds saved CSV files with data for $q_{start}=1$ and $q_{end}=2500$ for $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and max $v_n=1000$ for ease of reproducing 'animation.mp4'. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and its internal Python file comments.
