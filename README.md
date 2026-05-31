@@ -26,6 +26,11 @@
   
 > Python file that runs in the terminal to create an animation for multiple $q$ values for when $S$ is the general Hailstone function. Required parameters for the animation include $q_{start}$, $q_{end}$, $k_{start}$, $k_{end}$, $x_{start}$, $x_{end}$, and max $v_n$. Optional parameters include a $q$-step value, time per $q$ frame in the video, selection between GIF or MP4 output, number of workers computing the data, DPI, number of colors, video width, and video height. 
 
-## "ZGC_cache.7z"
+## "animation_cache_q.7z"
 
-> This compressed 7-Zip cache file holds saved CSV files with data for $q_{start}=1$ and $q_{end}=2500$ for $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and max $v_n=1000$ for ease of reproducing 'animation.mp4'. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and its internal Python file comments.
+> This compressed 7-Zip cache file holds saved data CSV files for the $q$-ZGC graph animation, 'animation_q.mp4', and are provided for ease of replicating. The parameters of these the $q$-ZGC graphs in the animation are the following: $q_{start}=1$, $q_{end}=2500$, $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, $x_{end}=1000$, and $N=1000$. These files took 15+ hours to generate. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and its internal Python file comments.
+
+
+## "animation_cache_x_end.7z"
+
+> This compressed 7-Zip cache file holds saved data CSV files for the $q$-ZGC graph animation, 'animation_x_end.mp4', and are provided for ease of replicating. The parameters of these the $x_{end}$-ZGC graphs in the animation are the following: $q=100$, $k_{start}=1$, $k_{end}=q+1.001$, $x_{start}=1$, ${x_{end}}_{start}=1$, {x_{end}}_{end}=6400 and max $v_n=1000$. These files took 12+ hours to generate. For directions on how to create your own animations see the 'The Vector Sequence Framework.pdf' file for context and/or the 'ZGC_animate.py' file description and its internal Python file comments.
