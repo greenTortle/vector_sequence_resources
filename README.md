@@ -6,7 +6,7 @@
 
 # File Descriptions:
 
-## "The Vector Sequence Framework.pdf"
+## "The Vector Sequence Object.pdf"
 
 > PDF paper that this repository accompanies. Beginning in number theory, this paper gives context for the following files in this repository. All graphs and data referenced and used in this paper came from output of one or more of the following Python and C files in this repository.
  
